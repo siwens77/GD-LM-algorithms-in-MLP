@@ -1,18 +1,20 @@
-import numpy as np
+from torch.utils.data import TensorDataset, DataLoader, random_split
 import matplotlib.pyplot as plt
+import torch
+import torch.nn as nn
+import torch.optim as optim
 
 # Step #1
 
 # Parameter
 N = 24
 # Coordinates
-V = np.linspace(-2, +2, N)
-[X, Y] = np.meshgrid(V, V)
-coordinates = np.vstack([X.ravel(), Y.ravel()]).T
-print(coordinates)
+V = torch.linspace(-2, +2, N)
+[X, Y] = torch.meshgrid(V, V, indexing="xy")
+coordinates = torch.stack([X.ravel(), Y.ravel()], dim=1)
 # Regions
 cond1 = Y >= X
-cond2 = np.logical_or((Y > -X), np.abs(X + Y) < 1e-2)
+cond2 = (Y > -X) | (torch.abs(X + Y) < 1e-2)
 regions = 1 * cond1 + 2 * cond2 + 1
 regions = regions.ravel()
 # Figure
@@ -32,14 +34,61 @@ for r in range(1, 5):
 plt.xlim(-2, 2)
 plt.ylim(-2, 2)
 plt.axis("equal")
-# plt.show()
 
 # Step #2
 
 # Probabilities
-probabilities = [[0] * 4 for i in range(len(regions))]
+probabilities = torch.tensor([[0.0] * 4 for i in range(len(regions))])
 for n in range(len(regions)):
-    probabilities[n][regions[n] - 1] = 1
+    probabilities[n][regions[n] - 1] = 1.0
 # Multi-layer perceptron
-MLP = None
+MLP = nn.Sequential(
+    nn.Linear(2, 4),
+    nn.Linear(4, 4),
+    nn.Linear(4, 4),
+    nn.Softmax(dim=1),
+)
+# Options
+epochs = 50
+trainingAlgorithm = optim.SGD(MLP.parameters(), lr=0.1, momentum=0.9)
+lossFunction = nn.MSELoss()
 
+fullData = TensorDataset(coordinates, probabilities)
+sampleSize = len(coordinates)
+trainSize = int(0.8 * sampleSize)
+testSize = sampleSize - trainSize
+
+trainData, testData = random_split(fullData, [trainSize, testSize])
+trainLoader = DataLoader(trainData, batch_size=10, shuffle=True)
+testLoader = DataLoader(testData, batch_size=10, shuffle=True)
+
+# Training
+for epoch in range(epochs):
+    for batchCoord, batchProb in trainLoader:
+        y_pred = MLP(batchCoord)
+        loss = lossFunction(y_pred, batchProb)
+        trainingAlgorithm.zero_grad()
+        loss.backward()
+        trainingAlgorithm.step()
+    if loss.item() < 0.01:
+        break
+
+# Step #3
+
+# Map colors
+Colors = [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0]]
+# Coordinates of the coloration points
+N2 = 300
+V = torch.linspace(-2, +2, N2)
+[X, Y] = torch.meshgrid(V, V, indexing="xy")
+coordinates2 = torch.stack([X.ravel(), Y.ravel()], dim=1)
+# Most propable regions
+with torch.no_grad():
+    probabilities2 = MLP(coordinates2)
+_, regions2 = torch.max(probabilities2, dim=1)
+# Coloration
+gridLabels = regions2.reshape(300, 300).numpy()
+plt.figure(figsize=(8, 8))
+plt.imshow(gridLabels, extent=[-2, 2, -2, 2], origin="lower", alpha=0.25, cmap="jet")
+plt.scatter(coordinates[:, 0], coordinates[:, 1], c=regions, edgecolors="k", s=60)
+plt.show()
