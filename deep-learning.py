@@ -65,11 +65,14 @@ testLoader = DataLoader(testData, batch_size=10, shuffle=True)
 # Training
 for epoch in range(epochs):
     for batchCoord, batchProb in trainLoader:
+        trainingAlgorithm.zero_grad()
         y_pred = MLP(batchCoord)
         loss = lossFunction(y_pred, batchProb)
-        trainingAlgorithm.zero_grad()
         loss.backward()
         trainingAlgorithm.step()
+    inputs, outputs = next(iter(testLoader))
+    testY = MLP(inputs)
+    testloss = lossFunction(testY, outputs)
     if loss.item() < 0.01:
         break
 
@@ -89,6 +92,49 @@ _, regions2 = torch.max(probabilities2, dim=1)
 # Coloration
 gridLabels = regions2.reshape(300, 300).numpy()
 plt.figure(figsize=(8, 8))
-plt.imshow(gridLabels, extent=[-2, 2, -2, 2], origin="lower", alpha=0.25, cmap="jet")
+plt.imshow(gridLabels, extent=[-2, 2, -2, 2], origin="lower", alpha=0.25)
 plt.scatter(coordinates[:, 0], coordinates[:, 1], c=regions, edgecolors="k", s=60)
+# plt.show()
+
+# ----------------------------------------------------
+
+# Step #1
+
+# Parameters
+R = 4
+k = 8
+N = R
+S = k * N
+Nt = S * N
+# Initialization
+x0 = 0
+y0 = 0
+X = torch.zeros(N, S)
+Y = torch.zeros(N, S)
+regions = torch.zeros(1, S + 1)
+# Spirals coordinates and regions
+n = torch.arange(N).view(N, 1)
+s = torch.arange(S).view(1, S)
+r = torch.floor((s - 1) * R / S + 1)
+a0 = n / N * 2 * torch.pi / k
+a = a0 + s * 2 * torch.pi / S
+b = a0
+X = b * torch.cos(a) + x0
+Y = b * torch.sin(a) + y0
+regions = r.expand(N, S)
+# Figure
+colors = ["magenta", "lime", "cyan", "yellow"]
+plt.figure(figsize=(7, 7))
+for r in range(1, R + 1):
+    i = regions == r
+    plt.scatter(
+        X[i],
+        Y[i],
+        c=colors[r - 1],
+        edgecolors="k",
+        s=60,
+    )
+plt.xlim(X.min().item(), X.max().item())
+plt.ylim(Y.min().item(), Y.max().item())
+plt.axis("equal")
 plt.show()
