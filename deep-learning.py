@@ -60,7 +60,7 @@ testSize = sampleSize - trainSize
 
 trainData, testData = random_split(fullData, [trainSize, testSize])
 trainLoader = DataLoader(trainData, batch_size=10, shuffle=True)
-testLoader = DataLoader(testData, batch_size=10, shuffle=True)
+testLoader = DataLoader(testData, shuffle=True)
 
 # Training
 for epoch in range(epochs):
@@ -94,7 +94,6 @@ gridLabels = regions2.reshape(300, 300).numpy()
 plt.figure(figsize=(8, 8))
 plt.imshow(gridLabels, extent=[-2, 2, -2, 2], origin="lower", alpha=0.25)
 plt.scatter(coordinates[:, 0], coordinates[:, 1], c=regions, edgecolors="k", s=60)
-# plt.show()
 
 # ----------------------------------------------------
 
@@ -111,30 +110,48 @@ x0 = 0
 y0 = 0
 X = torch.zeros(N, S)
 Y = torch.zeros(N, S)
-regions = torch.zeros(1, S + 1)
+regions = torch.zeros(N, S, dtype=torch.long)
 # Spirals coordinates and regions
-n = torch.arange(N).view(N, 1)
-s = torch.arange(S).view(1, S)
-r = torch.floor((s - 1) * R / S + 1)
-a0 = n / N * 2 * torch.pi / k
-a = a0 + s * 2 * torch.pi / S
-b = a0
-X = b * torch.cos(a) + x0
-Y = b * torch.sin(a) + y0
-regions = r.expand(N, S)
+for s in range(1, S + 1):
+    r = torch.floor((torch.tensor(s) - 1) * R / S + 1)
+    for n in range(1, N + 1):
+        a0 = n / N * 2 * torch.pi / k
+        a = torch.tensor(a0 + s * 2 * torch.pi / S)
+        b = a0
+        X[n - 1, s - 1] = b * torch.cos(a) + x0
+        Y[n - 1, s - 1] = b * torch.sin(a) + y0
+        regions[n - 1, s - 1] = r
+coordinates = torch.stack([X.ravel(), Y.ravel()], dim=1)
+regions = regions.ravel()
 # Figure
 colors = ["magenta", "lime", "cyan", "yellow"]
 plt.figure(figsize=(7, 7))
 for r in range(1, R + 1):
     i = regions == r
     plt.scatter(
-        X[i],
-        Y[i],
+        coordinates[i, 0],
+        coordinates[i, 1],
         c=colors[r - 1],
         edgecolors="k",
         s=60,
     )
+# Plot
 plt.xlim(X.min().item(), X.max().item())
 plt.ylim(Y.min().item(), Y.max().item())
 plt.axis("equal")
-plt.show()
+# plt.show()
+# Probabilities
+probabilities = torch.zeros(R, torch.numel(regions))
+for n in range(torch.numel(regions)):
+    probabilities[regions[n] - 1][n] = 1
+# Multi-layer perceptron
+MLP = nn.Sequential(
+    nn.Linear(2, 16),
+    nn.Tanh(),
+    nn.Linear(16, 8),
+    nn.Tanh(),
+    nn.Linear(18, R),
+    nn.Tanh(),
+    nn.Linear(R, R),
+    nn.Softmax(),
+)
