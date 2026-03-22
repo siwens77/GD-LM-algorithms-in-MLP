@@ -38,7 +38,7 @@ plt.axis("equal")
 # Step #2
 
 # Probabilities
-probabilities = torch.tensor([[0.0] * 4 for i in range(len(regions))])
+probabilities = torch.zeros(torch.numel(regions), 4)
 for n in range(len(regions)):
     probabilities[n][regions[n] - 1] = 1.0
 # Multi-layer perceptron
