@@ -64,6 +64,7 @@ trainLoader = DataLoader(trainData, batch_size=10, shuffle=True)
 testLoader = DataLoader(testData, batch_size=116,shuffle=True)
 
 lossHistory = []
+lossHistoryTest = []
 # Training
 for epoch in range(epochs):
     sum_loss = 0
@@ -74,13 +75,16 @@ for epoch in range(epochs):
         sum_loss+=loss.item()
         loss.backward()
         trainingAlgorithm.step()
+    sum_loss/=len(trainLoader)
     lossHistory.append(sum_loss)
     inputs, outputs = next(iter(testLoader))
     testY = MLP(inputs)
     testloss = lossFunction(testY, outputs).item()
-    if sum_loss < 0.01:
+    lossHistoryTest.append(testloss/len(testLoader))
+    if testloss < 0.01:
         break
 
+plt.plot(lossHistoryTest)
 plt.plot(lossHistory)
 plt.scatter(range(len(lossHistory)), lossHistory, c="blue", s=10) 
 plt.title("Training Algorithm: gradient descent")
