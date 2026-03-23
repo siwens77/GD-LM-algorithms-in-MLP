@@ -34,6 +34,7 @@ for r in range(1, 5):
 plt.xlim(-2, 2)
 plt.ylim(-2, 2)
 plt.axis("equal")
+# plt.show()
 
 # Step #2
 
@@ -60,25 +61,32 @@ testSize = sampleSize - trainSize
 
 trainData, testData = random_split(fullData, [trainSize, testSize])
 trainLoader = DataLoader(trainData, batch_size=10, shuffle=True)
-testLoader = DataLoader(testData, shuffle=True)
+testLoader = DataLoader(testData, batch_size=116,shuffle=True)
 
+lossHistory = []
 # Training
 for epoch in range(epochs):
-    print(epoch)
     sum_loss = 0
     for batchCoord, batchProb in trainLoader:
         trainingAlgorithm.zero_grad()
         y_pred = MLP(batchCoord)
         loss = lossFunction(y_pred, batchProb)
-        sum_loss+=loss
+        sum_loss+=loss.item()
         loss.backward()
         trainingAlgorithm.step()
+    lossHistory.append(sum_loss)
     inputs, outputs = next(iter(testLoader))
     testY = MLP(inputs)
-    testloss = lossFunction(testY, outputs)
+    testloss = lossFunction(testY, outputs).item()
     if sum_loss < 0.01:
         break
 
+plt.plot(lossHistory)
+plt.scatter(range(len(lossHistory)), lossHistory, c="blue", s=10) 
+plt.title("Training Algorithm: gradient descent")
+plt.xlabel("Epoch")
+plt.ylabel("Mean Squared Error")
+# plt.show()
 # Step #3
 
 # Map colors
@@ -97,6 +105,7 @@ gridLabels = regions2.reshape(300, 300).numpy()
 plt.figure(figsize=(8, 8))
 plt.imshow(gridLabels, extent=[-2, 2, -2, 2], origin="lower", alpha=0.25)
 plt.scatter(coordinates[:, 0], coordinates[:, 1], c=regions, edgecolors="k", s=60)
+# plt.show()
 
 # ----------------------------------------------------
 
@@ -142,7 +151,7 @@ for r in range(1, R + 1):
 plt.xlim(X.min().item(), X.max().item())
 plt.ylim(Y.min().item(), Y.max().item())
 plt.axis("equal")
-plt.show()
+# plt.show()
 # Probabilities
 probabilities = torch.zeros(R, torch.numel(regions))
 for n in range(torch.numel(regions)):
@@ -153,8 +162,8 @@ MLP = nn.Sequential(
     nn.Tanh(),
     nn.Linear(16, 8),
     nn.Tanh(),
-    nn.Linear(18, R),
+    nn.Linear(8, R),
     nn.Tanh(),
     nn.Linear(R, R),
-    nn.Softmax(),
+    nn.Softmax(dim=1),
 )
